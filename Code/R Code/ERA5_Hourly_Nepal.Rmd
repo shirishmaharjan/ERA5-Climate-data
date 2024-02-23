@@ -1,0 +1,456 @@
+---
+title: "ERA5 Hourly Data (Nepal)"
+author: "Shirish Maharjan"
+date: "2023-10-03"
+output: html_document
+---
+
+# Load libraries 
+```{r}
+library(dplyr)
+library(data.table)
+library(readxl)
+```
+
+# Load Max, Min Temp and Total precp datasets 
+```{r}
+tempMax_1950_1979 <- fread("E:/GIIS/ERA5 Hourly Data/Data/Orignal Data (First)/tempMax_1950_1979.csv")
+tempMax_1980_2022 <- fread("E:/GIIS/ERA5 Hourly Data/Data/Orignal Data (First)/tempMax_1980_2022.csv")
+
+tempMin_1950_1979 <- fread("E:/GIIS/ERA5 Hourly Data/Data/Orignal Data (First)/tempMin_1950_1979.csv")
+tempMin_1980_2022 <- fread("E:/GIIS/ERA5 Hourly Data/Data/Orignal Data (First)/tempMin_1980_2022.csv")
+
+precTot_1950_1979 <- fread("E:/GIIS/ERA5 Hourly Data/Data/Orignal Data (First)/precTot_1950_1979.csv")
+precTot_1980_2022 <- fread("E:/GIIS/ERA5 Hourly Data/Data/Orignal Data (First)/precTot_1980_2022.csv")
+
+```
+
+#Merging two different date datasets into one (1950-2022)
+```{r}
+tempMax_1950_2022 <- rbind(tempMax_1950_1979, tempMax_1980_2022) %>% 
+  dplyr::select(-V1)
+
+tempMin_1950_2022 <- rbind(tempMin_1950_1979, tempMin_1980_2022) %>% 
+  dplyr::select(-V1)
+
+precTot_1950_2022 <- rbind(precTot_1950_1979, precTot_1980_2022) %>% 
+  dplyr::select(-V1)
+
+full_date <- tempMax_1950_2022 %>% 
+  select(year, month, day)
+
+```
+
+# Change Kelvin to degree celcius and metre to millimetre 
+
+```{r}
+tempMax_1950_2022 <- tempMax_1950_2022 %>% 
+   select(-year, -month, -day) %>% 
+   mutate_all(~ . - 273.15)
+
+tempMin_1950_2022 <- tempMin_1950_2022 %>% 
+   select(-year, -month, -day) %>% 
+   mutate_all(~ . - 273.15)
+
+precTot_1950_2022 <- precTot_1950_2022 %>% 
+   select(-year, -month, -day) %>% 
+  mutate_all(~ . * 1000)
+
+
+```
+
+
+# Binding Date and formatted Temp (Degree Celclius) and Precp Data (Millimeter) 
+
+```{r}
+tempMax_1950_2022 <- cbind(full_date, tempMax_1950_2022)
+tempMin_1950_2022 <- cbind(full_date, tempMin_1950_2022)
+precTot_1950_2022 <- cbind(full_date, precTot_1950_2022)
+```
+
+
+# Write final data 
+```{r}
+write.csv(tempMax_1950_2022, "E:/GIIS/ERA5 Hourly Data/Data/Formatted Data SM (Second)/tempMax_1950_2022.csv")
+write.csv(tempMin_1950_2022, "E:/GIIS/ERA5 Hourly Data/Data/Formatted Data SM (Second)/tempMin_1950_2022.csv")
+write.csv(precTot_1950_2022, "E:/GIIS/ERA5 Hourly Data/Data/Formatted Data SM (Second)/precTot_1950_2022.csv")
+
+```
+
+
+# PHASE 2
+# Spatial join between grid/points and local units to find out which palika containts which grid/points
+# We take average of those grids. If municipality A has 2-3 grids/then we take average of it. 
+
+```{r}
+tempMax_1950_2022 <- fread("E:/GIIS/ERA5 Hourly Data/Data/Formatted Data SM (Second)/tempMax_1950_2022.csv")
+tempMin_1950_2022 <- fread("E:/GIIS/ERA5 Hourly Data/Data/Formatted Data SM (Second)/tempMin_1950_2022.csv")
+precTot_1950_2022 <- fread("E:/GIIS/ERA5 Hourly Data/Data/Formatted Data SM (Second)/precTot_1950_2022.csv")
+
+grid_palika_join <- read_excel("E:/GIIS/ERA5 Hourly Data/Data/Grid_Palika_Join(Third)/Gird_Palika_join.xlsx")
+
+```
+
+#Remove unwanted columns from dataframes 
+
+```{r}
+tempMax_1950_2022 <- tempMax_1950_2022 %>% 
+  select(-V1)
+
+tempMin_1950_2022 <- tempMin_1950_2022 %>% 
+  select(-V1)
+
+precTot_1950_2022 <- precTot_1950_2022 %>% 
+  select(-V1)
+
+grid_palika_join <- grid_palika_join %>% 
+  select(DISTRICT, Province,GaPa_NaPa, unique_id)
+
+
+```
+
+
+# Transpose the data and Left join according to the "unique_id" in both dataframes
+
+# tempMax
+
+```{r}
+#Transpose the data so that it is easier to leftjoin
+
+tempMax_1950_2022_transpose <- tempMax_1950_2022 %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  slice(-(1:3))
+
+# Make a new column name "unique_id" so that two dataframes have common column name
+
+tempMax_1950_2022_transpose <- tempMax_1950_2022_transpose %>% 
+  mutate(unique_id = row.names(tempMax_1950_2022_transpose))
+
+# Change unique_id class to numeric
+
+tempMax_1950_2022_transpose$unique_id <- as.numeric(tempMax_1950_2022_transpose$unique_id)
+
+# left join grid_palika_join "unique_id" with tempMax_1950_2022_transpose "unique_id"
+
+tempMax_1950_2022_join <- grid_palika_join %>%
+  left_join(tempMax_1950_2022_transpose, by = c("unique_id" = "unique_id")) 
+
+# Actual (Working)
+
+# Join using Municipality only 
+
+tempMax_1950_2022_municipality <- tempMax_1950_2022_join %>%
+  group_by(GaPa_NaPa) %>%
+  summarize(across(everything(), mean)) %>% 
+  t() %>% 
+  as.data.frame()
+
+# Join using District only 
+
+tempMax_1950_2022_district <- tempMax_1950_2022_join %>%
+  group_by(DISTRICT) %>%
+  summarize(across(everything(), mean)) %>% 
+  t() %>% 
+  as.data.frame()
+
+
+# Join using Province only 
+
+tempMax_1950_2022_Province <- tempMax_1950_2022_join %>%
+  group_by(Province) %>%
+  summarize(across(everything(), mean)) %>% 
+  t() %>% 
+  as.data.frame()
+
+# Remove unwanted row names from data frames 
+
+tempMax_1950_2022_municipality <- tempMax_1950_2022_municipality %>% 
+  slice(-2,-3,-4)
+
+tempMax_1950_2022_district <- tempMax_1950_2022_district %>% 
+  slice(-2,-3,-4)
+
+tempMax_1950_2022_Province <- tempMax_1950_2022_Province%>% 
+  slice(-2,-3,-4)
+
+# Make Municipality names as row names 
+
+colnames(tempMax_1950_2022_municipality) <- tempMax_1950_2022_municipality %>% 
+  slice(1)
+
+tempMax_1950_2022_municipality <- tempMax_1950_2022_municipality %>% 
+  slice(-1)
+
+# Make district names as row names 
+
+colnames(tempMax_1950_2022_district) <- tempMax_1950_2022_district %>% 
+  slice(1)
+
+tempMax_1950_2022_district <- tempMax_1950_2022_district %>% 
+  slice(-1)
+
+# Make Municipality names as row names 
+
+colnames(tempMax_1950_2022_Province) <- tempMax_1950_2022_Province %>% 
+  slice(1)
+
+tempMax_1950_2022_Province <- tempMax_1950_2022_Province %>% 
+  slice(-1)
+
+```
+
+# Add year, month and date column in newly made dataframe (municipality, district and province wise)
+
+```{r}
+date <- tempMax_1950_2022 %>% 
+  select(year, month, day)
+
+tempMax_1950_2022_municipality <- cbind(date, tempMax_1950_2022_municipality)
+tempMax_1950_2022_district <- cbind(date, tempMax_1950_2022_district)
+tempMax_1950_2022_Province <- cbind(date, tempMax_1950_2022_Province)
+
+```
+
+# Write tempMax datasets 
+
+```{r}
+write.csv(tempMax_1950_2022_municipality, "E:/GIIS/ERA5 Hourly Data/Data/Average_grid_data (Fourth)/Municipality/tempMax_1950_2022_municipality.csv", row.names = FALSE)
+write.csv(tempMax_1950_2022_district, "E:/GIIS/ERA5 Hourly Data/Data/Average_grid_data (Fourth)/District/tempMax_1950_2022_district.csv", row.names = FALSE)
+write.csv(tempMax_1950_2022_Province, "E:/GIIS/ERA5 Hourly Data/Data/Average_grid_data (Fourth)/Province/tempMax_1950_2022_province.csv", row.names = FALSE)
+
+```
+
+
+
+
+
+
+
+
+# tempMin
+
+```{r}
+#Transpose the data so that it is easier to leftjoin
+
+tempMin_1950_2022_transpose <- tempMin_1950_2022 %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  slice(-(1:3))
+
+# Make a new column name "unique_id" so that two dataframes have common column name
+
+tempMin_1950_2022_transpose <- tempMin_1950_2022_transpose %>% 
+  mutate(unique_id = row.names(tempMin_1950_2022_transpose))
+
+# Change unique_id class to numeric
+
+tempMin_1950_2022_transpose$unique_id <- as.numeric(tempMin_1950_2022_transpose$unique_id)
+
+# left join grid_palika_join "unique_id" with tempMin_1950_2022_transpose "unique_id"
+
+tempMin_1950_2022_join <- grid_palika_join %>%
+  left_join(tempMin_1950_2022_transpose, by = c("unique_id" = "unique_id")) 
+
+# Actual (Working)
+
+# Join using Municipality only 
+
+tempMin_1950_2022_municipality <- tempMin_1950_2022_join %>%
+  group_by(GaPa_NaPa) %>%
+  summarize(across(everything(), mean)) %>% 
+  t() %>% 
+  as.data.frame()
+
+# Join using District only 
+
+tempMin_1950_2022_district <- tempMin_1950_2022_join %>%
+  group_by(DISTRICT) %>%
+  summarize(across(everything(), mean)) %>% 
+  t() %>% 
+  as.data.frame()
+
+
+# Join using Province only 
+
+tempMin_1950_2022_Province <- tempMin_1950_2022_join %>%
+  group_by(Province) %>%
+  summarize(across(everything(), mean)) %>% 
+  t() %>% 
+  as.data.frame()
+
+# Remove unwanted row names from data frames 
+
+tempMin_1950_2022_municipality <- tempMin_1950_2022_municipality %>% 
+  slice(-2)
+
+tempMin_1950_2022_district <- tempMin_1950_2022_district %>% 
+  slice(-2,-3,-4)
+
+tempMin_1950_2022_Province <- tempMin_1950_2022_Province%>% 
+  slice(-2,-3,-4)
+
+# Make Municipality names as row names 
+
+colnames(tempMin_1950_2022_municipality) <- tempMin_1950_2022_municipality %>% 
+  slice(1)
+
+tempMin_1950_2022_municipality <- tempMin_1950_2022_municipality %>% 
+  slice(-1)
+
+# Make district names as row names 
+
+colnames(tempMin_1950_2022_district) <- tempMin_1950_2022_district %>% 
+  slice(1)
+
+tempMin_1950_2022_district <- tempMin_1950_2022_district %>% 
+  slice(-1)
+
+# Make Municipality names as row names 
+
+colnames(tempMin_1950_2022_Province) <- tempMin_1950_2022_Province %>% 
+  slice(1)
+
+tempMin_1950_2022_Province <- tempMin_1950_2022_Province %>% 
+  slice(-1)
+
+```
+
+# Add year, month and date column in newly made dataframe (municipality, district and province wise)
+
+```{r}
+date <- tempMin_1950_2022 %>% 
+  select(year, month, day)
+
+tempMin_1950_2022_municipality <- cbind(date, tempMin_1950_2022_municipality)
+tempMin_1950_2022_district <- cbind(date, tempMin_1950_2022_district)
+tempMin_1950_2022_Province <- cbind(date, tempMin_1950_2022_Province)
+
+```
+
+# Write tempMin datasets 
+
+```{r}
+write.csv(tempMin_1950_2022_municipality, "E:/GIIS/ERA5 Hourly Data/Data/Average_grid_data (Fourth)/Municipality/tempMin_1950_2022_municipality.csv", row.names = FALSE)
+write.csv(tempMin_1950_2022_district, "E:/GIIS/ERA5 Hourly Data/Data/Average_grid_data (Fourth)/District/tempMin_1950_2022_district.csv", row.names = FALSE)
+write.csv(tempMin_1950_2022_Province, "E:/GIIS/ERA5 Hourly Data/Data/Average_grid_data (Fourth)/Province/tempMin_1950_2022_province.csv", row.names = FALSE)
+
+```
+
+
+
+
+
+# precTot
+
+```{r}
+#Transpose the data so that it is easier to leftjoin
+
+precTot_1950_2022_transpose <- precTot_1950_2022 %>% 
+  t() %>% 
+  as.data.frame() %>% 
+  slice(-(1:3))
+
+# Make a new column name "unique_id" so that two dataframes have common column name
+
+precTot_1950_2022_transpose <- precTot_1950_2022_transpose %>% 
+  mutate(unique_id = row.names(precTot_1950_2022_transpose))
+
+# Change unique_id class to numeric
+
+precTot_1950_2022_transpose$unique_id <- as.numeric(precTot_1950_2022_transpose$unique_id)
+
+# left join grid_palika_join "unique_id" with precTot_1950_2022_transpose "unique_id"
+
+precTot_1950_2022_join <- grid_palika_join %>%
+  left_join(precTot_1950_2022_transpose, by = c("unique_id" = "unique_id")) 
+
+# Actual (Working)
+
+# Join using Municipality only 
+
+precTot_1950_2022_municipality <- precTot_1950_2022_join %>%
+  group_by(GaPa_NaPa) %>%
+  summarize(across(everything(), mean)) %>% 
+  t() %>% 
+  as.data.frame()
+
+# Join using District only 
+
+precTot_1950_2022_district <- precTot_1950_2022_join %>%
+  group_by(DISTRICT) %>%
+  summarize(across(everything(), mean)) %>% 
+  t() %>% 
+  as.data.frame()
+
+
+# Join using Province only 
+
+precTot_1950_2022_Province <- precTot_1950_2022_join %>%
+  group_by(Province) %>%
+  summarize(across(everything(), mean)) %>% 
+  t() %>% 
+  as.data.frame()
+
+# Remove unwanted row names from data frames 
+
+precTot_1950_2022_municipality <- precTot_1950_2022_municipality %>% 
+  slice(-2)
+
+precTot_1950_2022_district <- precTot_1950_2022_district %>% 
+  slice(-2,-3,-4)
+
+precTot_1950_2022_Province <- precTot_1950_2022_Province%>% 
+  slice(-2,-3,-4)
+
+# Make Municipality names as row names 
+
+colnames(precTot_1950_2022_municipality) <- precTot_1950_2022_municipality %>% 
+  slice(1)
+
+precTot_1950_2022_municipality <- precTot_1950_2022_municipality %>% 
+  slice(-1)
+
+# Make district names as row names 
+
+colnames(precTot_1950_2022_district) <- precTot_1950_2022_district %>% 
+  slice(1)
+
+precTot_1950_2022_district <- precTot_1950_2022_district %>% 
+  slice(-1)
+
+# Make province names as row names 
+
+colnames(precTot_1950_2022_Province) <- precTot_1950_2022_Province %>% 
+  slice(1)
+
+precTot_1950_2022_Province <- precTot_1950_2022_Province %>% 
+  slice(-1)
+
+```
+
+# Add year, month and date column in newly made dataframe (municipality, district and province wise)
+
+```{r}
+date <- precTot_1950_2022 %>% 
+  select(year, month, day)
+
+precTot_1950_2022_municipality <- cbind(date, precTot_1950_2022_municipality)
+precTot_1950_2022_district <- cbind(date, precTot_1950_2022_district)
+precTot_1950_2022_Province <- cbind(date, precTot_1950_2022_Province)
+
+```
+
+# Write precTot datasets 
+
+```{r}
+write.csv(precTot_1950_2022_municipality, "E:/GIIS/ERA5 Hourly Data/Data/Average_grid_data (Fourth)/Municipality/precTot_1950_2022_municipality.csv", row.names = FALSE)
+write.csv(precTot_1950_2022_district, "E:/GIIS/ERA5 Hourly Data/Data/Average_grid_data (Fourth)/District/precTot_1950_2022_district.csv", row.names = FALSE)
+write.csv(precTot_1950_2022_Province, "E:/GIIS/ERA5 Hourly Data/Data/Average_grid_data (Fourth)/Province/precTot_1950_2022_province.csv", row.names = FALSE)
+
+```
+
+
+
+
+

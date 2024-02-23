@@ -1,0 +1,1335 @@
+---
+title: "ERA5_Climate_indices_Nepal"
+author: "Shirish Maharjan"
+date: "2023-10-05"
+output: html_document
+---
+
+# Step 1 : Calulate Average of 1343 grid/points to calculate for whole Nepal [DONE]
+# Step 2 : You will have three files (Max, Min, Precp) Calculate all extreme indices from there.[DONE]
+# Step 3 : Plot those indices using ggplot2 package. [DONE]
+# Step 4 : Calculate Slope and p value of each indices [DONE]
+# Step 5 : Interrupted Time series chart 
+
+# Load libraries 
+```{r}
+library(dplyr)
+library(data.table)
+library(readxl)
+```
+
+
+# Load tempMax, tempMin and precTot datasets
+```{r}
+tempMax_1950_2022 <- fread("E:/GIIS/ERA5 Hourly Data/Data/Formatted Data SM (Second)/tempMax_1950_2022.csv")
+tempMin_1950_2022 <- fread("E:/GIIS/ERA5 Hourly Data/Data/Formatted Data SM (Second)/tempMin_1950_2022.csv")
+precTot_1950_2022 <- fread("E:/GIIS/ERA5 Hourly Data/Data/Formatted Data SM (Second)/precTot_1950_2022.csv")
+```
+
+#Remove unwanted columns from dataframes 
+
+```{r}
+tempMax_1950_2022 <- tempMax_1950_2022 %>% 
+  select(-V1)
+
+tempMin_1950_2022 <- tempMin_1950_2022 %>% 
+  select(-V1)
+
+precTot_1950_2022 <- precTot_1950_2022 %>% 
+  select(-V1)
+
+date <- tempMax_1950_2022 %>% 
+  select(year, month, day)
+```
+
+
+# Step 1 : Calulate Average of 1343 grid/points to calculate for whole Nepal 
+
+```{r}
+#tempMax_1950_2022
+
+tempMax_1950_2022 <- tempMax_1950_2022 %>%
+  select(-year, -month, -day) %>% 
+  mutate(row_means = rowMeans(across(everything())))
+
+tempMax_1950_2022 <- tempMax_1950_2022$row_means
+
+tempMax_1950_2022 <- as.data.frame(tempMax_1950_2022)
+
+tempMax_1950_2022 <- cbind(date, tempMax_1950_2022)
+
+write.csv(tempMax_1950_2022, "E:/GIIS/ERA5 Hourly Data/Data/Average_grid_data (Fourth)/Nepal/tempMax_1950_2022_Nepal.csv", row.names = FALSE)
+
+
+#tempMin_1950_2022
+
+tempMin_1950_2022 <- tempMin_1950_2022 %>%
+  select(-year, -month, -day) %>% 
+  mutate(row_means = rowMeans(across(everything())))
+
+tempMin_1950_2022 <- tempMin_1950_2022$row_means
+
+tempMin_1950_2022 <- as.data.frame(tempMin_1950_2022)
+
+tempMin_1950_2022 <- cbind(date, tempMin_1950_2022)
+
+write.csv(tempMin_1950_2022, "E:/GIIS/ERA5 Hourly Data/Data/Average_grid_data (Fourth)/Nepal/tempMin_1950_2022_Nepal.csv", row.names = FALSE)
+
+
+#precTot_1950_2022
+
+precTot_1950_2022 <- precTot_1950_2022 %>%
+  select(-year, -month, -day) %>% 
+  mutate(row_means = rowMeans(across(everything())))
+
+precTot_1950_2022 <- precTot_1950_2022$row_means
+
+precTot_1950_2022 <- as.data.frame(precTot_1950_2022)
+
+precTot_1950_2022 <- cbind(date, precTot_1950_2022)
+
+write.csv(precTot_1950_2022, "E:/GIIS/ERA5 Hourly Data/Data/Average_grid_data (Fourth)/Nepal/precTot_1950_2022_Nepal.csv", row.names = FALSE)
+
+```
+
+
+# Step 2 : You will have three files (Max, Min, Precp) Calculate all extreme indices from there.
+
+# Load Libraries 
+
+```{r}
+library(tidyverse)
+library(climdex.pcic.ncdf)
+library(ncdf4)
+library(raster)
+library(reshape2)
+library(plyr)
+require(scales)
+library(climdex.pcic)
+library(Kendall)
+#library(ncdf)
+library(PCICt)
+library(dplyr)
+```
+
+
+#Calulate climate extreme (Annual and monthly) indices
+
+```{r}
+base.period.historic <- c(1991, 2020)
+    
+  # Arrange date accordingly. 
+    
+  data.sub <- tempMax_1950_2022 %>%
+      mutate(date = as.Date(paste(year, month, day, sep = "-"),
+                            "%Y-%m-%d")) 
+    
+  this.dates <- as.PCICt(as.POSIXct(data.sub$date, tz = "GMT"),
+                           cal = "gregorian")
+  
+  climdex.input <- climdexInput.raw(tmax=tempMax_1950_2022$tempMax_1950_2022,
+                                  tmin=tempMin_1950_2022$tempMin_1950_2022,
+                                  prec = precTot_1950_2022$precTot_1950_2022,
+                                  tmax.dates = this.dates,
+                                  tmin.dates = this.dates,
+                                  prec.dates = this.dates,
+                                  base.range = base.period.historic,
+                                  n = 5,
+                                  northern.hemisphere = TRUE,
+                                  tavg = NULL, tavg.dates = NULL,
+                                  quantiles = NULL,
+                                  temp.qtiles = c(0.1, 0.9),
+                                  prec.qtiles = c(0.95, 0.99),
+                                  max.missing.days = c(annual = 40, monthly = 10),
+                                  min.base.data.fraction.present = 0.1)
+
+
+
+    # CALCULATE INDICES
+    ## ANNUAL INDICES
+    ice_days <- climdex.id(climdex.input)
+    frost_days <- climdex.fd(climdex.input)
+    cdd <- climdex.cdd(climdex.input)
+    cwd <- climdex.cwd(climdex.input)
+    r99p <- climdex.r99ptot(climdex.input)
+    r95p <- climdex.r95ptot(climdex.input)
+    wsdi <- climdex.wsdi(climdex.input)
+    csdi <- climdex.csdi(climdex.input)
+    sdii <- climdex.sdii(climdex.input)
+    gsl <- climdex.gsl(climdex.input)
+    r10mm <- climdex.r10mm(climdex.input)
+    r20mm <- climdex.r20mm(climdex.input)
+    prcptot <- climdex.prcptot(climdex.input)
+    
+    ## MONTHLY INDICES
+    tx10p <- climdex.tx10p(climdex.input)
+    tx90p <- climdex.tx90p(climdex.input)
+    tn90p <- climdex.tn90p(climdex.input)
+    txx <- climdex.txx(climdex.input)
+    txn <- climdex.txn(climdex.input)
+    tnn <- climdex.tnn(climdex.input)
+    tnx <- climdex.tnx(climdex.input)
+    dtr <- climdex.dtr(climdex.input)
+    rx1day <- climdex.rx1day(climdex.input)
+    rx5day <- climdex.rx5day(climdex.input)
+    
+    
+    ##MERGE INDICES
+    annual.indices_Nepal <- data.frame(cbind(ice_days, frost_days, cdd, cwd, r99p,
+                                       r95p, wsdi, csdi, sdii, gsl, r10mm, r20mm,
+                                       prcptot)) 
+    
+    
+    
+    monthly.indices_Nepal <- data.frame(cbind(tx10p, tx90p, tn90p, txx,
+                                        txn, tnn, tnx, dtr, rx1day, rx5day)) 
+    
+
+write.csv(annual.indices_Nepal, "E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/annual.indices_Nepal.csv")
+
+write.csv(monthly.indices_Nepal, "E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/monthly.indices_Nepal.csv")
+```
+
+
+# Step 3 : Plot those indices using ggplot2 package.
+
+#Load Whole Nepal datasets 
+
+```{r}
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(lubridate)
+library(cowplot)
+```
+
+
+```{r}
+
+annual.indices_Nepal <- read.csv("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/annual.indices_Nepal.csv")
+
+monthly.indices_Nepal <- read.csv("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/monthly.indices_Nepal.csv")
+
+# Group data by year and calculate the sum or mean of 'value' for each year
+monthly.indices_Nepal <- monthly.indices_Nepal %>%
+  group_by(year) %>%
+  dplyr::summarize(across(everything(), mean))  # You can use mean() if you prefer the mean
+
+
+```
+
+# Precipitaion indices 
+
+```{r}
+library(ggnetwork)
+
+cdd_plot <- 
+  ggplot(data = annual.indices_Nepal, aes(x = year, y = cdd)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "Days"
+  ) + 
+  ggtitle("Dry days(cdd)") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(-50, 40)) +
+  theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+cdd_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/cdd_plot.png", plot = cdd_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+
+# cwd
+
+cwd_plot <- 
+  ggplot(data = annual.indices_Nepal, aes(x = year, y = cwd)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "Days"
+  ) + 
+  ggtitle("Wet days(cwd)") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(-50, 40)) +
+  theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+cwd_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/cwd_plot.png", plot = cwd_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+
+
+# r10mm
+
+r10mm_plot <- 
+  ggplot(data = annual.indices_Nepal, aes(x = year, y = r10mm)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "Days"
+  ) + 
+  ggtitle("Heavy precipitation days(r10mm)") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(-50, 40)) +
+  theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+r10mm_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/r10mm_plot.png", plot = r10mm_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+
+
+# r20mm
+
+r20mm_plot <- 
+  ggplot(data = annual.indices_Nepal, aes(x = year, y = r20mm)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "Days"
+  ) + 
+  ggtitle("Very heavy precipitation days(r20mm)") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(-50, 40)) +
+  theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+r20mm_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/r20mm_plot.png", plot = r20mm_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+
+
+
+# r95p
+
+r95p_plot <- 
+  ggplot(data = annual.indices_Nepal, aes(x = year, y = r95p)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "mm"
+  ) + 
+  ggtitle("Wet days(r95p)") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(-50, 40)) +
+  theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+r95p_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/r95p_plot.png", plot = r95p_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+
+
+
+
+
+# r99p
+
+r99p_plot <- 
+  ggplot(data = annual.indices_Nepal, aes(x = year, y = r99p)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "mm"
+  ) + 
+  ggtitle("Very wet days(r99p)") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(-50, 40)) +
+  theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+r99p_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/r99p_plot.png", plot = r99p_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+
+
+
+
+# rx1day
+
+rx1day_plot <- 
+  ggplot(data = monthly.indices_Nepal, aes(x = year, y = rx1day)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "mm"
+  ) + 
+  ggtitle("1-day precipitation(rx1day)") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(-50, 40)) +
+  theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+rx1day_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/rx1day_plot.png", plot = rx1day_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+
+
+
+
+# rx5day
+
+rx5day_plot <- 
+  ggplot(data = monthly.indices_Nepal, aes(x = year, y = rx5day)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "mm"
+  ) + 
+   ggtitle("5-day precipitation(rx1day)") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(-50, 40)) +
+  theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+rx5day_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/rx5day_plot.png", plot = rx5day_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+
+
+
+
+# prcptot
+
+prcptot_plot <- 
+  ggplot(data = annual.indices_Nepal, aes(x = year, y = prcptot)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "mm"
+  ) + 
+   ggtitle("Annual total precipitation(prcptot)") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(-50, 40)) +
+  scale_y_continuous(breaks = c(0, 500, 1000,1500,2000,2500)) + 
+ theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+prcptot_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/prcptot_plot.png", plot = prcptot_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+
+# sdii
+
+sdii_plot <- 
+  ggplot(data = annual.indices_Nepal, aes(x = year, y = sdii)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "mm/day"
+  ) + 
+     ggtitle("Daily intensity index(sdii)") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(-50, 40)) +
+  scale_y_continuous(breaks = c(0,2,4,6,8,10,12)) + 
+ theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+sdii_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/sdii_plot.png", plot = sdii_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+Precipitation_indices <- plot_grid(cdd_plot, cwd_plot,
+                                   r10mm_plot, r20mm_plot,
+                                   r95p_plot, r99p_plot,
+                                   rx1day_plot, rx5day_plot,
+                                   prcptot_plot, sdii_plot,
+                                   ncol = 5, 
+                                   nrow = 2)
+
+Precipitation_indices
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/Precipitation_indices.png", plot = Precipitation_indices, dpi = 300, bg="white", width = 15, height = 5)
+
+
+```
+
+
+# Temperature Indices 
+
+```{r}
+
+#txx
+txx_plot <- 
+  ggplot(data = monthly.indices_Nepal, aes(x = year, y = txx)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "deg C"
+  ) + 
+  ggtitle("Max Tmax(txx)") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(0, 30)) +
+  scale_y_continuous(breaks = c(0,5,10,15,20,25,30)) + 
+  theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+txx_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/txx_plot.png", plot = txx_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+
+
+#tnx
+tnx_plot <- 
+  ggplot(data = monthly.indices_Nepal, aes(x = year, y = tnx)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "deg C"
+  ) + 
+  ggtitle("Max Tmin(tnx)") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(0, 30)) +
+  #scale_y_continuous(breaks = c(0,5,10,15,20,25,30)) + 
+  theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+tnx_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/tnx_plot.png", plot = tnx_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+
+
+#txn
+txn_plot <- 
+  ggplot(data = monthly.indices_Nepal, aes(x = year, y = txn)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "deg C"
+  ) + 
+  ggtitle("Min Tmax(txn)") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(0, 30)) +
+  #scale_y_continuous(breaks = c(0,5,10,15,20,25,30)) + 
+  theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+txn_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/txn_plot.png", plot = txn_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+
+
+
+#tnn
+tnn_plot <- 
+  ggplot(data = monthly.indices_Nepal, aes(x = year, y = tnn)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "deg C"
+  ) + 
+  ggtitle("Min Tmin(tnn)") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(0, 30)) +
+  #scale_y_continuous(breaks = c(0,5,10,15,20,25,30)) + 
+  theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+tnn_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/tnn_plot.png", plot = tnn_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+
+
+
+
+
+#tn90p
+
+tn90p_plot <- 
+  ggplot(data = monthly.indices_Nepal, aes(x = year, y = tn90p)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "days"
+  ) + 
+  ggtitle("Warm nights(tn90p)") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(0, 30)) +
+  #scale_y_continuous(breaks = c(0,5,10,15,20,25,30)) + 
+  theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+tn90p_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/tn90p_plot.png", plot = tn90p_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+
+
+
+#tx90p
+
+tx90p_plot <- 
+  ggplot(data = monthly.indices_Nepal, aes(x = year, y = tx90p)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "days"
+  ) + 
+  ggtitle("Warm days(tx90p)") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(0, 30)) +
+  #scale_y_continuous(breaks = c(0,5,10,15,20,25,30)) + 
+  theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+tx90p_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/tx90p_plot.png", plot = tx90p_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+
+
+#tx10p
+
+tx10p_plot <- 
+  ggplot(data = monthly.indices_Nepal, aes(x = year, y = tx10p)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "days"
+  ) + 
+  ggtitle("Cool days(tx10p)") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(0, 30)) +
+  #scale_y_continuous(breaks = c(0,5,10,15,20,25,30)) + 
+  theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+tx10p_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/tx10p_plot.png", plot = tx10p_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+
+
+
+
+#dtr
+
+dtr_plot <- 
+  ggplot(data = monthly.indices_Nepal, aes(x = year, y = dtr)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "deg C"
+  ) + 
+  ggtitle("Diurnal temperature(dtr)") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(0, 30)) +
+  #scale_y_continuous(breaks = c(0,5,10,15,20,25,30)) + 
+  theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+dtr_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/dtr_plot.png", plot = dtr_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+
+
+#ice_days
+
+ice_days_plot <- 
+  ggplot(data = annual.indices_Nepal, aes(x = year, y = ice_days)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "days"
+  ) + 
+  ggtitle("Ice_days") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(0, 30)) +
+  #scale_y_continuous(breaks = c(0,5,10,15,20,25,30)) + 
+  theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+ice_days_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/ice_days_plot.png", plot = ice_days_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+
+
+
+#frost_days
+
+frost_days_plot <- 
+  ggplot(data = annual.indices_Nepal, aes(x = year, y = frost_days)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "days"
+  ) + 
+  ggtitle("frost_days") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(0, 30)) +
+  #scale_y_continuous(breaks = c(0,5,10,15,20,25,30)) + 
+  theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+frost_days_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/frost_days_plot.png", plot = frost_days_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+
+
+
+#wsdi
+
+wsdi_plot <- 
+  ggplot(data = annual.indices_Nepal, aes(x = year, y = wsdi)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "days"
+  ) + 
+  ggtitle("Warm spell(wsdi)") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(0, 30)) +
+  #scale_y_continuous(breaks = c(0,5,10,15,20,25,30)) + 
+  theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+wsdi_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/wsdi_plot.png", plot = wsdi_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+
+
+#csdi
+
+csdi_plot <- 
+  ggplot(data = annual.indices_Nepal, aes(x = year, y = csdi)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "days"
+  ) + 
+  ggtitle("Cold spell(csdi)") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(0, 30)) +
+  #scale_y_continuous(breaks = c(0,5,10,15,20,25,30)) + 
+  theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+csdi_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/csdi_plot.png", plot = csdi_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+
+
+
+#gsl
+
+gsl_plot <- 
+  ggplot(data = annual.indices_Nepal, aes(x = year, y = gsl)) + 
+  theme_bw() +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  geom_line(size = 0.5, color = "red", alpha = 0.5) +
+  geom_smooth(method = lm, se = FALSE, linetype = 2, colour = "gray", alpha = 0.5) +
+  labs(
+    x = "Years",
+    y = "days"
+  ) + 
+  ggtitle("Growing season(gsl)") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(0, 30)) +
+  #scale_y_continuous(breaks = c(0,5,10,15,20,25,30)) + 
+  theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+gsl_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/gsl_plot.png", plot = gsl_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+
+
+
+temperature_indices <- plot_grid(txx_plot, tnx_plot, txn_plot, tnn_plot, 
+                                tn90p_plot, tx90p_plot, tx10p_plot,dtr_plot,
+                                ice_days_plot, frost_days_plot, wsdi_plot, csdi_plot, 
+                                gsl_plot, 
+                                ncol = 4,
+                                nrow = 4)
+
+temperature_indices
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/temperature_indices.png", plot = temperature_indices, dpi = 300, bg="white", width = 12, height = 10)
+
+
+
+
+```
+
+
+
+# Slope and p value calculations for whole Nepal
+
+
+```{r}
+
+# Load the required packages
+library(trend)
+library(Kendall)
+
+# ANNUAL INDICES
+
+# Create an empty data frame to store the results
+results <- data.frame(Index = character(0), Sensitivity_Slope = numeric(0), MK_P_Value = numeric(0))
+
+# List of climate indices
+climate_indices <- c(
+  "ice_days", "frost_days", "cdd", "cwd", "r99p", "r95p",
+  "wsdi", "csdi", "sdii", "gsl", "r10mm", "r20mm", "prcptot"
+)
+
+# Split the data frame by Municipality
+#municipality_groups <- split(sarlahi_annual_indices, sarlahi_annual_indices$Municipality)
+
+# Loop through each municipality group
+# for (municipality in names(municipality_groups)) {
+#   municipality_data <- municipality_groups[[municipality]]
+  
+# Loop through each climate index
+for (index_name in climate_indices) {
+    # Extract the column data
+    ci_values <- annual.indices_Nepal[[index_name]]
+    
+    # Calculate the sensitivity slope
+    sens_slope_result <- sens.slope(ci_values)
+    
+    # Calculate the Mann-Kendall p-value
+    mk_test_result <- mk.test(ci_values)
+    
+    # Store the results in the 'results' data frame
+    results <- rbind(results, data.frame(Index = index_name, Sensitivity_Slope = sens_slope_result$estimates, MK_P_Value = mk_test_result$p.value))
+  
+}
+
+# Print the results
+write.csv(results,  "E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Sens slope and p value/annual.indices_Nepal_slope.csv", row.names = FALSE)
+
+
+# MONTHLY INDICES
+
+# Create an empty data frame to store the results
+results <- data.frame(Index = character(0), Sensitivity_Slope = numeric(0), MK_P_Value = numeric(0))
+
+# List of climate indices
+climate_indices <- c(
+  "tx10p","tx90p","tn90p","txx","txn","tnn","tnx","dtr","rx1day","rx5day")
+
+# Loop through each climate index
+for (index_name in climate_indices) {
+    # Extract the column data
+    ci_values <- monthly.indices_Nepal[[index_name]]
+    
+    # Calculate the sensitivity slope
+    sens_slope_result <- sens.slope(ci_values)
+    
+    # Calculate the Mann-Kendall p-value
+    mk_test_result <- mk.test(ci_values)
+    
+    # Store the results in the 'results' data frame
+    results <- rbind(results, data.frame(Index = index_name, Sensitivity_Slope = sens_slope_result$estimates, MK_P_Value = mk_test_result$p.value))
+  
+}
+
+# Print the results
+write.csv(results,  "E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Sens slope and p value/monthly.indices_Nepal_slope.csv", row.names = FALSE)
+```
+
+
+
+#### Step 5 : Interrupted time series chart 
+
+```{r}
+
+# Create a ggplot object
+
+r20mm_its_plot <- ggplot(annual.indices_Nepal, aes(x = year, y = r20mm))+ 
+  geom_line(size = 0.5, color = "black", alpha = 0.5) +
+  theme_bw() +
+  geom_smooth(method = "lm", se = FALSE, color = "blue", linetype = 2, alpha = 0.5, size = 0.5,  data = annual.indices_Nepal[annual.indices_Nepal$year <= 1990, ]) + 
+  geom_smooth(method = "lm", se = FALSE, color = "red", linetype = 2, alpha = 0.5, size = 0.5,  data = annual.indices_Nepal[annual.indices_Nepal$year >= 1990, ]) +
+  #geom_smooth(method = "lm", se = FALSE, color = "blue", linetype = 2, alpha = 0.5, size = 0.5,  data = annual.indices_Nepal[annual.indices_Nepal$year >= 1950 & annual.indices_Nepal$year <= 1990, ]) +
+  #geom_smooth(method = "lm", se = FALSE, color = "red", linetype = 2, alpha = 0.5, size = 0.5,  data = annual.indices_Nepal[annual.indices_Nepal$year >= 1990  & annual.indices_Nepal$year <= 2010, ]) +
+  #geom_smooth(method = "lm", se = FALSE, color = "orange", linetype = 2, alpha = 0.5, size = 0.5,  data = annual.indices_Nepal[annual.indices_Nepal$year >= 2010  & annual.indices_Nepal$year <= 2022, ]) +
+  theme(axis.line = element_line(colour = "black"),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank()) +
+  labs(
+    x = "Years",
+    y = "days"
+  ) + 
+  ggtitle("Very heavy precipitation days(r20mm)") +
+  theme(
+    axis.text.x =element_text(size=13, colour = "black"), 
+    axis.text.y =element_text(size=13, colour = "black"),
+    axis.title.x =element_text(size=13, colour = "black"),
+    axis.title.y =element_text(size=13, colour = "black"),
+    plot.background = element_rect(fill = "grey97", color = NA),
+    plot.title = element_text(hjust = 0.5, size = 12, colour = "black", face="bold")) +
+  #scale_y_continuous(limits = c(0, 30)) +
+  #scale_y_continuous(breaks = c(0,5,10,15,20,25,30)) + 
+  theme(
+    panel.background  = element_blank(),
+    plot.background = element_rect(fill = "transparent", color = NA), 
+    legend.background = element_rect(fill = "transparent", color = NA)) +
+  #theme(aspect.ratio = 2 / (0.09 + sqrt(6))) +
+  theme(aspect.ratio=1) +
+  theme(axis.title.x = element_blank()) + 
+  geom_hline(yintercept = 0, colour = "gray", alpha=0.3, size=0.5) 
+
+r20mm_its_plot
+
+ggsave("E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Figures/Interrupted time series plot/r20mm_its_plot.png", plot = r20mm_its_plot, dpi = 300, bg="white", width = 5, height = 5)
+
+#Slope calculation 
+
+r20mm_its_slope <- annual.indices_Nepal %>% 
+  select(year, r20mm)
+
+r20mm_its_LT_1990_slope <- r20mm_its_slope %>% 
+  filter(year >= 1950 &  year <= 1990) %>%
+  summarise(slope = sens.slope(r20mm)$estimates,
+            pvalue = mk.test(r20mm)$p.value)
+
+r20mm_its_GT_1990_slope <- r20mm_its_slope %>% 
+  filter (year >= 1990 &  year <= 2022) %>%
+  summarise(slope = sens.slope(r20mm)$estimates,
+            pvalue = mk.test(r20mm)$p.value)
+
+r20mm_its_slope <- rbind(r20mm_its_LT_1990_slope,
+                         r20mm_its_GT_1990_slope)
+
+write.csv(r20mm_its_slope,  "E:/GIIS/ERA5 Hourly Data/Data/Climate extreme outputs (Fifth)/Nepal/Sens slope and p value/Interrupted time series slope/r20mm_its_slope.csv",)
+
+
+```
+
+
+
+
