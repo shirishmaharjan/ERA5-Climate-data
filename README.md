@@ -14,6 +14,7 @@ Python code to download ERA5 data. Original (1979-2022). Later adding 2023.
 # Step to download of specific year (2023)
 
 - Change date in code respectively.
+- ee.authenticate(), We need to copy token from gmail and paste in vs code initially. 
 - era5_dataset = ee.ImageCollection('ECMWF/ERA5_LAND/HOURLY').filterDate('2023-01-01', '2024-01-01')
 - output_path = 'ERA5_2023' (Make your own directory name ERA5_2023 and output will be in that folder.
 - Install all the necesary libraries and geemap will take some time.
