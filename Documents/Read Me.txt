@@ -1,0 +1,18 @@
+Data Source: ERA5-Land Hourly - ECMWF Climate Reanalysis (https://developers.google.com/earth-engine/datasets/catalog/ECMWF_ERA5_LAND_HOURLY) 
+Data Date Range: 1980/01/01-2022/12/31
+
+Variables and Units:
+minTemp: Kelvin
+maxTemp: Kelvin
+precTot: Meter
+year: year
+month: month of the corresponding year
+day: day of the corresponding year and month
+
+Important Notes:-
+1. Each column in 'tempMin.csv', 'tempMax.csv' and 'precTot.csv' except for 'year', 'month' and 'day' are unique grid ids ranging from 0 to 1342
+3. The values of the grid id columns represent daily measurements of the climatic variable specified in the file name
+2. Coordinates for each grid centroid can be found in 'geometries.csv'
+3. All the tables can be joined (including geometries) with each other using the unique grid ids 
+
+
