@@ -1,6 +1,8 @@
 # ERA5-Climate-data
 Python code to download ERA5 data. Original (1979-2022). Later adding 2023. 
 
+# Created a grid shape file of 1342 unique values of Nepal. 
+
 # Steps to download ERA5 data. 
 
 - SJ has created a code that will download ERA5 data from https://developers.google.com/earth-engine/datasets/catalog/ECMWF_ERA5_LAND_HOURLY#description from 1979-2022
