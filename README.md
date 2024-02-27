@@ -23,3 +23,11 @@ Python code to download ERA5 data. Original (1979-2022). Later adding 2023.
 - Install all the necesary libraries and geemap will take some time.
 - Change for year in range(2023, 2024):
 - Python File : ERA5_Data_Download.py
+
+# Data Analysis of the year 2023 (27.02.2023)
+
+- Used ERA5_2023_analysis.ipynb to merge 365 csv files from "C:\GIIS\ERA 5 Hourly 2023\Python code\Code\ERA5_2023" folder to make it one single csv format.
+- Then used same code to add new columns year, month and day to make it according to csv file names like 20230101 would be year = 2023, month = 01 and day = 01.
+- Used pivot table to make it in correct format.
+- Added 2023 data to "E:\GIIS\ERA5 Hourly Data\Data\Orignal Data (First)\tempMax_1980_2022.csv" location to tempMax_1980_2022, tempMax_1980_2022 and precTot_1980_2022 at the end.
+- Now we have to rename tempMax_1980_2022 to tempMax_1980_2023 and tempMin_1980_2023 to tempMin_1980_2023 and precTot_1980_2022 to precTot_1980_2023
