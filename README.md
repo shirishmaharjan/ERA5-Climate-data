@@ -31,3 +31,9 @@ Python code to download ERA5 data. Original (1979-2022). Later adding 2023.
 - Used pivot table to make it in correct format.
 - Added 2023 data to "E:\GIIS\ERA5 Hourly Data\Data\Orignal Data (First)\tempMax_1980_2022.csv" location to tempMax_1980_2022, tempMax_1980_2022 and precTot_1980_2022 at the end.
 - Now we have to rename tempMax_1980_2022 to tempMax_1980_2023 and tempMin_1980_2023 to tempMin_1980_2023 and precTot_1980_2022 to precTot_1980_2023
+
+# Steps to download and analysis of ERA5 data from scratch 
+
+- Step 1 : Used ERA5_Data_Download_1979_2022.py and ERA5_Data_Download.py to download daily ERA5 maxTemp, minTemp and totalPrecp data from 19790101 to 20221231 and 20230101 to 20231231 respectively and it will store data in a folder like 20230101,20230102 etc.
+- Step 2 : Used ERA5_2023_analysis.ipynb to merge all the csv file of a folder and add new columns year, month and day to make it according to csv file names like 20230101 would be year = 2023, month = 01 and day = 01.
+- Step 3 : Used ERA5_Hourly_Nepal.Rmd to analyse and filter. We left join shape file unique id and our  maxTemp, minTemp and totalPrecp unique id to determine name of municipality, province and district. 
