@@ -9,17 +9,18 @@ from colorama import Fore, Back
 from retry import retry
 
 #
-# ee.Authenticate()
-ee.Initialize(opt_url='https://earthengine-highvolume.googleapis.com')
+ee.Authenticate()
+#ee.Initialize(opt_url='https://earthengine-highvolume.googleapis.com')
+ee.Initialize(project='ee-crismaharjan', opt_url='https://earthengine-highvolume.googleapis.com')
 start_time = time.time()
 
-output_path = 'ERA5_2023'
+output_path = 'ERA5_2024'
 points_fc = ee.FeatureCollection('projects/ee-joshisur231/assets/climatic_data_points')
 
 print(Fore.BLUE + f'Started at..........{datetime.fromtimestamp(start_time)}')
 
 
-era5_dataset = ee.ImageCollection('ECMWF/ERA5_LAND/HOURLY').filterDate('2023-01-01', '2024-01-01')
+era5_dataset = ee.ImageCollection('ECMWF/ERA5_LAND/HOURLY').filterDate('2024-01-01', '2025-01-01')
 
 @retry(tries=10, delay=1, backoff=2)
 def process_date(date_chunk):
@@ -51,10 +52,10 @@ if __name__ == "__main__":
     leap_years = [
         1904, 1908, 1912, 1916, 1920, 1924, 1928, 1932, 1936, 1940, 
         1944, 1948, 1952, 1956, 1960, 1964, 1968, 1972, 1976, 1980, 
-        1984, 1988, 1992, 1996, 2000, 2004, 2008, 2012, 2016, 2020]
+        1984, 1988, 1992, 1996, 2000, 2004, 2008, 2012, 2016, 2020, 2024]
 
     dateList = []
-    for year in range(2023, 2024):
+    for year in range(2024, 2025):
         for month in range(1, 13):
             if month in [4, 6, 9, 11]:
                 max_day = 30
@@ -79,4 +80,5 @@ if __name__ == "__main__":
     
     end_time = time.time()
     print(Back.GREEN + f'Completed.......{datetime.fromtimestamp(end_time)}|||||Completed in {end_time-start_time} sec')
+
     
