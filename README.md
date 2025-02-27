@@ -43,5 +43,7 @@ Python code to download ERA5 data. Original (1979-2022). Later adding 2023.
 - Downloading for Year 2024 then we use this code : "D:\GIIS\ERA 5 Hourly 2023\Python code\Code\ERA5_Data_Download.py". Changes made : output_path = 'ERA5_2024', era5_dataset = ee.ImageCollection('ECMWF/ERA5_LAND/HOURLY').filterDate('2024-01-01', '2025-01-01'), leap_years = 2024, range(2024, 2025). While running there was a problem but when running in "Interactive Window" it ran smoothly.
 -  ![image](https://github.com/user-attachments/assets/92225783-d5cf-43b7-9695-7db7aafbcb0c)
 -  Output is in folder : "D:\GIIS\ERA 5 Hourly 2023\Python code\Code\ERA5_2024"
--  Remaining task changing into degree celius, mergining excel files, assigning palika name according to the grid and adding LCode for it. 
+-  Remaining task changing into degree celius, mergining excel files, assigning palika name according to the grid and adding LCode for it.
+-  ![image](https://github.com/user-attachments/assets/ff398633-5443-4358-a89f-d51a571df87a)
+
 
