@@ -45,4 +45,6 @@ Python code to download ERA5 data. Original (1979-2022). Later adding 2023.
 -  Output is in folder : "D:\GIIS\ERA 5 Hourly 2023\Python code\Code\ERA5_2024"
 -  Remaining task changing into degree celius, mergining excel files, assigning palika name according to the grid and adding LCode for it.
 -  ![image](https://github.com/user-attachments/assets/ff398633-5443-4358-a89f-d51a571df87a)
+-  After combining all the dataset for 2024 we have a final data but our data are not arranged in a way that we need so we need to further analysis and re arrange our data and we use "D:\GIIS\ERA 5 Hourly 2023\Python code\Code\ERA5_2024_analysis.ipynb" code to re arrange the data and later we paste tempMax, tempMin and precpTot each 2024 in our main folder which we use R to analyse further. 
 -  Used "E:\GIIS\ERA5 Hourly Data\Code\ERA5_Hourly_Nepal.Rmd" to analyse all the dataset and Final data are in the folder : "E:\GIIS\ERA5 Hourly Data\Data\Average_grid_data (Fourth)"
+-  NOTE : The initial downloading of ERA5 and analysis upto one part is in one harddisk ["D:\GIIS\ERA 5 Hourly 2023"] and then other analysis, rerrangeing and adding municpality name is in another folder ["E:\GIIS\ERA5 Hourly Data"]
